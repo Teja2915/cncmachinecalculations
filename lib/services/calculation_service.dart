@@ -1,60 +1,59 @@
+import 'dart:math';
+
 class CalculationService {
+  // Calculate Surface Roughness and Tool Wear
   static List<Map<String, double>> calculateResults(
     List<Map<String, double>> inputData,
   ) {
     List<Map<String, double>> results = [];
 
-    for (var data in inputData) {
-      double cs = data['Cutting Speed'] ?? 0;
-      double fr = data['Feed Rate'] ?? 0;
-      double doc = data['Depth of Cut'] ?? 0;
+    for (var row in inputData) {
+      double cuttingSpeed = row["Cutting Speed (cs) (rpm)"] ?? 0.0;
+      double feedRate = row["Feed Rate (fr) (mm/min)"] ?? 0.0;
+      double depthOfCut = row["Depth of Cut (doc) (mm)"] ?? 0.0;
 
-      // Surface Roughness (SR) Calculation
-      double sr =
-          0.147 +
-          (0.000467 * cs) +
-          (0.00047 * fr) -
-          (0.282 * doc) +
-          (0.000001 * cs * cs) +
-          (0.000144 * fr * fr) +
-          (0.683 * doc * doc) -
-          (0.000057 * cs * fr) -
-          (0.001725 * cs * doc) +
-          (0.0402 * fr * doc);
+      // Ensure valid inputs
+      if (cuttingSpeed <= 0 || feedRate <= 0 || depthOfCut <= 0) continue;
 
-      // Tool Wear (TW) Calculation
-      double tw =
-          -0.149 +
-          (0.000096 * cs) -
-          (0.0232 * fr) +
-          (1.812 * doc) +
-          (0.000001 * cs * cs) -
-          (0.000586 * fr * fr) +
-          (0.702 * doc * doc) +
-          (0.000129 * cs * fr) -
-          (0.003667 * cs * doc) -
-          (0.0810 * fr * doc);
+      // Corrected formulas (adjust as needed)
+      double surfaceRoughness = (0.125 * feedRate * feedRate) / depthOfCut;
+      double toolWear =
+          (0.0003 * cuttingSpeed * cuttingSpeed * sqrt(feedRate)) /
+          pow(depthOfCut, 0.2);
 
-      results.add({'Surface Roughness': sr, 'Tool Wear': tw});
+      results.add({
+        "Cutting Speed (cs) (rpm)": cuttingSpeed,
+        "Feed Rate (fr) (mm/min)": feedRate,
+        "Depth of Cut (doc) (mm)": depthOfCut,
+        "Surface Roughness (µm)": surfaceRoughness,
+        "Tool Wear (mm)": toolWear,
+      });
     }
 
     return results;
   }
 
-  static Map<String, dynamic> findLeastValue(
-    List<Map<String, double>> inputData,
-    List<Map<String, double>> results,
+  // Find the row with the least value of a given parameter
+  static Map<String, dynamic>? findLeastValue(
+    List<Map<String, double>> data,
+    String key,
   ) {
-    double minSR = double.infinity;
-    Map<String, double> minInput = {};
+    if (data.isEmpty || !data.first.containsKey(key)) return null;
 
-    for (int i = 0; i < results.length; i++) {
-      if (results[i]['Surface Roughness']! < minSR) {
-        minSR = results[i]['Surface Roughness']!;
-        minInput = inputData[i];
-      }
-    }
+    var minRow = data.reduce(
+      (curr, next) =>
+          (curr[key] ?? double.infinity) < (next[key] ?? double.infinity)
+              ? curr
+              : next,
+    );
 
-    return {'leastValue': minSR, 'inputs': minInput};
+    return {
+      'leastValue': minRow[key],
+      'inputs': {
+        "Cutting Speed (cs) (rpm)": minRow["Cutting Speed (cs) (rpm)"],
+        "Feed Rate (fr) (mm/min)": minRow["Feed Rate (fr) (mm/min)"],
+        "Depth of Cut (doc) (mm)": minRow["Depth of Cut (doc) (mm)"],
+      },
+    };
   }
 }
